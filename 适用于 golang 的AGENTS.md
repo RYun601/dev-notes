@@ -107,7 +107,7 @@
 ### 数值字段规范（必须执行）
 - 涉及金额、积分、费率、折扣、汇率、税率、重量/体积等需保留小数精度的业务字段，数据库类型必须使用 `DECIMAL/NUMERIC(p,s)`。
 - 禁止使用 `FLOAT/DOUBLE/REAL` 等浮点类型存储上述业务值。
-- Go 代码中对应字段必须使用 `decimal.Decimal`（例如 `github.com/shopspring/decimal`）；禁止使用 `float32/float64` 承载业务小数。
+- Go 代码中对应字段必须使用高精度十进制类型（推荐 `github.com/shopspring/decimal`，或项目统一批准的等价库）；禁止使用 `float32/float64` 承载业务小数。
 - 外部接口返回浮点值时，必须在边界层完成精度安全转换后再落库/计算，禁止直接以浮点参与核心业务计算。
 
 ## 适用范围
