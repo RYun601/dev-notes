@@ -1,0 +1,222 @@
+# apiDoc 接口文档生成说明
+
+本文说明如何通过 **apiDoc（apidocjs）** 在任意后端项目中用源码注释生成静态 API 文档，便于团队统一维护与在多仓库间复用同一套流程。
+
+---
+
+## 1. 工具是什么
+
+- **名称**：apiDoc（也称 apidoc.js）
+- **官网**：https://apidocjs.com  
+- **作用**：在控制器 / 路由处理器等源码中编写约定格式的注释（`@api` 等），通过 CLI **生成**静态 HTML（左侧分组、接口详情、示例、锚点链接等）。
+- **产物**：一般为输出目录下的 `index.html`、`api_data.js` 等，由静态资源服务或反向代理对外提供。
+
+浏览器地址里的锚点形如：`#/api-User-CreateUser`，通常由 `@apiGroup User` 与 `@apiName CreateUser` 组合而成（具体格式以生成版本为准）。
+
+---
+
+## 2. 环境安装
+
+### 全局安装（本机常用）
+
+```bash
+npm install -g apidoc
+```
+
+### 项目本地依赖（推荐便于锁定版本）
+
+```bash
+npm install -D apidoc
+```
+
+使用 `npx` 执行，无需全局安装：
+
+```bash
+npx apidoc -i <输入目录> -o <输出目录> -c <配置目录>
+```
+
+---
+
+## 3. 典型目录结构（可按项目调整）
+
+下面是一种常见布局，路径仅作示例：
+
+```
+项目根/
+├── src/
+│   └── api/                       # 或 controllers/、routes/、handlers/ 等
+│       ├── apidoc.json            # apiDoc 项目配置（也可单独放在 doc/）
+│       ├── header.md              # 可选：文档顶部「全局说明」
+│       ├── footer.md              # 可选：文档底部
+│       └── UserController.php     # 示例：内含 @api 注释（语言不限）
+└── public/docs/api/               # 生成结果（勿手改，应以重新生成为准）
+    ├── index.html
+    ├── api_data.js
+    └── ...
+```
+
+PHP、JavaScript（Node）、Java 等只要在源码里写 **块注释 + `@api`**，均可被扫描；`-i` 指向包含这些文件的目录即可。
+
+---
+
+## 4. 配置文件 `apidoc.json`
+
+在配置目录放置 **`apidoc.json`**（由 `-c` 指定）。示例：
+
+```json
+{
+  "name": "示例服务 API",
+  "version": "1.0.0",
+  "description": "后端 HTTP 接口说明",
+  "title": "示例服务 API 文档",
+  "header": {
+    "title": "文档说明",
+    "filename": "header.md"
+  }
+}
+```
+
+常用字段说明：
+
+| 字段 | 含义 |
+|------|------|
+| `name` / `version` / `title` / `description` | 文档元信息，会出现在生成页 |
+| `header.filename` | 相对 **配置目录** 的 Markdown，渲染到文档**顶部** |
+| `footer.filename` | 同上，渲染到底部（可选） |
+
+更多选项见官网 **Configuration**。
+
+---
+
+## 5. 全局说明 `header.md`（可选）
+
+用于描述：产品背景、环境与 Base URL、鉴权方式、**公共请求头**、**公共参数**、错误码约定、分页约定等。
+
+维护方式：直接编辑 Markdown；重新执行 `apidoc` 后生效。
+
+---
+
+## 6. 源码注释写法（核心）
+
+在**每个接口对应的函数 / 方法**上方，使用块注释编写 **apiDoc 指令**。以下为通用示例（以 PHP 为例，其它语言把注释包在对应块注释语法中即可）。
+
+```php
+/**
+ * @api {POST} /api/v1/users 创建用户
+ * @apiName CreateUser
+ * @apiGroup User
+ * @apiVersion 1.0.0
+ * @apiDescription 创建一条用户记录并返回主键。
+ * @apiPermission authenticated
+ * @apiSampleRequest /api/v1/users
+ *
+ * @apiParam {string} name （必填）用户名
+ * @apiParam {string} email （必填）邮箱
+ *
+ * @apiParamExample {json} Request-Example
+ * {
+ *   "name": "张三",
+ *   "email": "zhangsan@example.com"
+ * }
+ *
+ * @apiSuccess {string} id 新建用户 ID
+ * @apiSuccess {string} createdAt 创建时间（ISO8601）
+ *
+ * @apiSuccessExample {json} Success-Example
+ * {
+ *   "id": "usr_001",
+ *   "createdAt": "2026-01-01T12:00:00Z"
+ * }
+ */
+public function create() { ... }
+```
+
+常用指令一览：
+
+| 指令 | 作用 |
+|------|------|
+| `@api {METHOD} path 标题` | HTTP 方法、路径、短标题 |
+| `@apiName` | 接口唯一名称，影响锚点 |
+| `@apiGroup` | 左侧分组名 |
+| `@apiVersion` | 版本 |
+| `@apiDescription` | 详细说明 |
+| `@apiParam` | 请求参数 |
+| `@apiSuccess` / `@apiError` | 返回字段 |
+| `@apiParamExample` / `@apiSuccessExample` | 示例 |
+
+完整列表与语法以官网 **Documentation → apidoc-core** 为准。
+
+---
+
+## 7. 生成命令
+
+```bash
+apidoc -i <扫描源码的目录> -o <输出目录> [-c <含 apidoc.json 的配置目录>]
+```
+
+**示例**（路径按实际项目替换）：
+
+```bash
+apidoc -i src/api/controllers -o public/docs/api -c src/api
+```
+
+说明：
+
+- **`-i`**：递归扫描该目录下文件，提取 `@api` 注释。
+- **`-o`**：静态站点输出目录，可随前端静态资源或单独站点部署。
+- **`-c`**：`apidoc.json` 所在目录；其中 `header.filename` 相对该目录解析。
+
+建议在项目 **`package.json`** 中增加脚本，便于团队统一：
+
+```json
+{
+  "scripts": {
+    "docs:api": "apidoc -i src/api/controllers -o public/docs/api -c src/api"
+  }
+}
+```
+
+CI 中可在构建步骤执行 `npm run docs:api`，保证对外文档与源码同步。
+
+---
+
+## 8. 维护约定（建议）
+
+1. **禁止只改生成目录**：输出目录内文件会在下次生成时被覆盖；应以**源码注释**与 **`apidoc.json` / `header.md`** 为准。
+2. **接口变更**：改接口实现处的注释 → 本地执行生成命令 → 视策略决定是否将生成物一并提交版本库。
+3. **分组与命名**：`@apiGroup` / `@apiName` 保持稳定，避免外部书签、对接说明里的锚点失效。
+4. **多模块**：可在同一 `-i` 根目录下分子包存放；或用 `@apiGroup` 区分业务域。
+
+---
+
+## 9. 与其它方案的简要对比
+
+| 对比项 | apiDoc | OpenAPI（Swagger） |
+|--------|--------|---------------------|
+| 文档写法 | 源码旁注释 | 多为独立 YAML/JSON |
+| 与代码同步 | 改方法即改文档（习惯得当） | 常与实现分离，需额外同步 |
+| 适用场景 | 单体或模块化后端仓库内文档 | 契约优先、多语言客户端生成 |
+
+选型：若团队希望 **「注释即文档」**、减少单独维护一份 OpenAPI 文件的成本，可采用 **apiDoc**。
+
+---
+
+## 10. 多语言 / 多框架提示
+
+- **PHP / Java / C#**：使用对应语言的块注释包裹 `@api` 块即可。
+- **JavaScript / TypeScript**：在路由 handler 或控制器方法上用 `/** ... */`。
+- **Go**：无块注释时可用连续 `//` 形式的 apiDoc 注释（见官方对 Go 的说明），或在独立 `.apidoc` 片段中维护（按团队约定）。
+
+扫描路径 `-i` 只需覆盖「存放接口实现与注释」的目录。
+
+---
+
+## 11. 故障排查
+
+- **生成为空**：检查 `-i` 是否包含带 `@api` 的文件；注释块是否被解析器识别（块注释格式、编码）。
+- **header 未出现**：确认 `-c` 指向含 `apidoc.json` 的目录，且 `header.filename` 路径正确。
+- **锚点不对**：核对 `@apiGroup` 与 `@apiName` 是否与预期一致。
+
+---
+
+*文档版本：随仓库维护；生成工具版本以各项目 `package.json` 或全局 `apidoc -v` 为准。*
